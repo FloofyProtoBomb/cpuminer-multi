@@ -12,7 +12,9 @@
 #include <vector>
 #define VERUS_KEY_SIZE 8832
 #define VERUS_KEY_SIZE128 552
+extern "C" {
 #include <miner.h>
+}
 #include "portability.h"
 
 enum
@@ -30,7 +32,7 @@ static const int PROTOCOL_VERSION = 170002;
 #define EQNONCE_OFFSET 30 /* 27:34 */
 #define NONCE_OFT EQNONCE_OFFSET
 
-static bool init[MAX_GPUS] = { 0 };
+static bool init[MAX_CPUS] = { 0 };
 
 static __thread uint32_t throughput = 0;
 
@@ -211,9 +213,13 @@ Verus2hash((unsigned char *)vhash, (unsigned char *)blockhash_half, nonce_buf, d
 			memcpy(work->data, full_data, 140);
 			int nonce = work->valid_nonces - 1;
 			memcpy(work->extra, sol_data, 1347);
-			bn_store_hash_target_ratio(vhash, work->target, work, nonce);
+			// FIXME: change to bn_store_hash_target_ratio
+//			bn_store_hash_target_ratio(vhash, work->target, work, nonce);
+			work_set_target_ratio(work, vhash);
 
-			work->nonces[work->valid_nonces - 1] = ((uint32_t*)full_data)[NONCE_OFT];
+			// FIXME: change to nonces
+			//work->nonces[work->valid_nonces - 1] = ((uint32_t*)full_data)[NONCE_OFT];
+			work->xnonce2[work->valid_nonces - 1] = ((uint32_t*)full_data)[NONCE_OFT];
 			//pdata[NONCE_OFT] = endiandata[NONCE_OFT] + 1;
 			goto out;
 		}

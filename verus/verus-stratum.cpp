@@ -6,12 +6,17 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+extern "C" {
 #include <miner.h>
+}
 
 #define EQNONCE_OFFSET 30 /* 27:34 */
 
 extern struct stratum_ctx stratum;
-extern pthread_mutex_t stratum_work_lock;
+extern "C" {
+//FIXME: is g_work_lock the same as stratum_work_lock?
+extern pthread_mutex_t g_work_lock;
+}
 
 // ZEC uses a different scale to compute diff... 
 // sample targets to diff (stored in the reverse byte order in work->target)
@@ -97,9 +102,9 @@ bool verus_stratum_set_target(struct stratum_ctx *sctx, json_t *params)
 	}
 	memcpy(sctx->job.extra, target_be, 32);
 
-	pthread_mutex_lock(&stratum_work_lock);
+	pthread_mutex_lock(&g_work_lock);
 	sctx->next_diff = target_to_diff_verus((uint32_t*) &target_be);
-	pthread_mutex_unlock(&stratum_work_lock);
+	pthread_mutex_unlock(&g_work_lock);
 
 	return true;
 }
@@ -127,7 +132,7 @@ bool verus_stratum_notify(struct stratum_ctx *sctx, json_t *params)
 		applog(LOG_ERR, "Stratum notify: invalid parameters");
 		goto out;
 	}
-	hex2bin(&sctx->job.hash_ver, hash_version, 1);
+	hex2bin((unsigned char*)&sctx->job.hash_ver, hash_version, 1);
 	/* store stratum server time diff */
 	hex2bin((uchar *)&ntime, stime, 4);
 	ntime = ntime - (int) time(0);
@@ -137,7 +142,7 @@ bool verus_stratum_notify(struct stratum_ctx *sctx, json_t *params)
 			applog(LOG_DEBUG, "stratum time is at least %ds in the future", ntime);
 	}
 
-	pthread_mutex_lock(&stratum_work_lock);
+	pthread_mutex_lock(&g_work_lock);
 	hex2bin(sctx->job.version, version, 4);
 	hex2bin(sctx->job.prevhash, prevhash, 32);
 
@@ -169,7 +174,7 @@ bool verus_stratum_notify(struct stratum_ctx *sctx, json_t *params)
 	sctx->job.clean = clean;
 
 	sctx->job.diff = sctx->next_diff;
-	pthread_mutex_unlock(&stratum_work_lock);
+	pthread_mutex_unlock(&g_work_lock);
 
 	ret = true;
 
@@ -191,7 +196,8 @@ bool verus_stratum_show_message(struct stratum_ctx *sctx, json_t *id, json_t *pa
 			char symbol[32] = { 0 };
 			uint32_t height = 0;
 			int ss = sscanf(data, "verushash %s block %u", symbol, &height);
-			if (height && ss > 1) sctx->job.height = height;
+			//TODO: Fixme?
+			//if (height && ss > 1) sctx->job.height = height;
 		}
 	}
 
@@ -212,46 +218,52 @@ bool verus_stratum_show_message(struct stratum_ctx *sctx, json_t *id, json_t *pa
 
 #define JSON_SUBMIT_BUF_LEN (20*1024)
 // called by submit_upstream_work()
-bool verus_stratum_submit(struct pool_infos *pool, struct work *work)
+bool verus_stratum_submit(const char * rpc_user, struct work *work)
 {
 	char _ALIGN(64) s[JSON_SUBMIT_BUF_LEN];
 	char _ALIGN(64) timehex[16] = { 0 };
 	char *jobid, *noncestr, *solhex;
-	int idnonce = work->submit_nonce_id;
+	//TODO: Fixme?
+	//int idnonce = work->submit_nonce_id;
 
 	// scanned nonce
-	work->data[EQNONCE_OFFSET] = work->nonces[idnonce];
+	//TODO: Fixme?
+	//work->data[EQNONCE_OFFSET] = work->nonces[idnonce];
+	//work->data[EQNONCE_OFFSET] = work->nonces;
 	unsigned char * nonce = (unsigned char*) (&work->data[27]);
 	size_t nonce_len = 32 - stratum.xnonce1_size;
 	// long nonce without pool prefix (extranonce)
-	noncestr = bin2hex(&nonce[stratum.xnonce1_size], nonce_len);
-
+	noncestr = (char*)malloc((nonce_len * 2) + 1);
 	solhex = (char*) calloc(1, 1344*2 + 64);
 	if (!solhex || !noncestr) {
 		applog(LOG_ERR, "unable to alloc share memory");
 		return false;
 	}
-	cbin2hex(solhex, (const char*) work->extra, 1347);
+	bin2hex(noncestr, &nonce[stratum.xnonce1_size], nonce_len);
+	bin2hex(solhex, work->extra, 1347);
 
 	jobid = work->job_id + 8;
 	sprintf(timehex, "%08x", swab32(work->data[25]));
 
 	snprintf(s, sizeof(s), "{\"method\":\"mining.submit\",\"params\":"
 		"[\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"], \"id\":%u}",
-		pool->user, jobid, timehex, noncestr, solhex,
+		rpc_user, jobid, timehex, noncestr, solhex,
 		stratum.job.shares_count + 10);
 
 	free(solhex);
 	free(noncestr);
 
-	gettimeofday(&stratum.tv_submit, NULL);
+	//TODO: Fixme?
+	//gettimeofday(&stratum.tv_submit, NULL);
 
 	if(!stratum_send_line(&stratum, s)) {
 		applog(LOG_ERR, "%s stratum_send_line failed", __func__);
 		return false;
 	}
 
-	stratum.sharediff = work->sharediff[idnonce];
+	//TODO: Fixme?
+	//stratum.sharediff = work->sharediff[idnonce];
+	stratum.sharediff = work->sharediff;
 	stratum.job.shares_count++;
 
 	return true;
