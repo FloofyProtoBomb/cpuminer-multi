@@ -27,10 +27,10 @@ echo "Configuring..."
 # Note: we don't enable -flto, it doesn't bring anything here but slows down
 # the build a lot. If needed, just add -flto to the CFLAGS string.
 # normal build.
-./configure --with-crypto --with-curl --disable-assembly CC=gcc CXX=g++ CFLAGS="-Ofast -fuse-linker-plugin -ftree-loop-if-convert-stores -march=native" LDFLAGS="-march=native"
+./configure --with-crypto --with-curl --disable-assembly CC=gcc CXX=g++ CFLAGS="-Ofast -g -fuse-linker-plugin -ftree-loop-if-convert-stores -march=native" LDFLAGS="-march=native"
 
 # debug build
-#./configure --with-crypto --with-curl --disable-assembly CC=gcc CXX=g++ CFLAGS="-O0 -g3 -fuse-linker-plugin -ftree-loop-if-convert-stores -march=native" LDFLAGS="-g3 -march=native"
+#./configure --with-crypto --with-curl --disable-assembly CC=gcc CXX=g++ CFLAGS=" -g -fuse-linker-plugin -ftree-loop-if-convert-stores -march=native" LDFLAGS="-g3 -march=native"
 
 [ $? = 0 ] || exit $?
 echo "  => done."
@@ -57,7 +57,7 @@ ls -l cpuminer
 
 echo "Stripping..."
 
-strip -s cpuminer
+#strip -s cpuminer
 
 [ $? = 0 ] || exit $?
 echo "  => done."
